@@ -5,11 +5,16 @@ node_modules/
 .vscode/
 .vscode
 .vscode/*
+vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 # Expo
 .expo/
 dist/
 web-build/
-expo-env.d.ts
 
 # Native
 .kotlin/
@@ -32,8 +37,7 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+
 
 # typescript
 *.tsbuildinfo
@@ -63,8 +67,7 @@ yarn-error.log
 # Ruby
 .direnv
 
-# Env
-.envrc.local
+
 
 # Emacs
 *~
@@ -152,7 +155,7 @@ shellAppWorkspaces
 /client-builds
 
 # Expo web env
-.env.local
+
 .env.development.local
 .env.test.local
 .env.production.local

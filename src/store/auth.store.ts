@@ -1,31 +1,26 @@
+import { User } from "@/types/user";
 import { create } from "zustand";
 
-type User = {
-  id: string;
-  name: string;
-  email: string;
-};
-
 type AuthStore = {
-  token: string | null;
   user: User | null;
-  setSession: (token: string, user: User) => void;
-  logout: () => void;
+  loading: boolean;
+  isAuthenticated: boolean;
+
+  setUser: (user: User | null) => void;
+
+  setLoading: (loading: boolean) => void;
 };
 
 export const useAuthStore = create<AuthStore>((set) => ({
-  token: null,
   user: null,
+  loading: true,
+  isAuthenticated: false,
 
-  setSession: (token, user) =>
+  setUser: (user) =>
     set({
-      token,
       user,
+      isAuthenticated: !!user,
     }),
 
-  logout: () =>
-    set({
-      token: null,
-      user: null,
-    }),
+  setLoading: (loading) => set({ loading }),
 }));
