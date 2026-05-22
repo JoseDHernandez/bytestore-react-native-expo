@@ -20,7 +20,7 @@ export type Product = {
   display: Display;
 };
 //Productos paginados
-export type ProductData = {
+export type PaginatedProducts = {
   total: number;
   pages: number;
   first: number;

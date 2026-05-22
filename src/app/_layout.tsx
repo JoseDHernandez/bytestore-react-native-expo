@@ -1,8 +1,9 @@
+import { useAuth } from "@/hooks/useAuth";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
+import "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "./global.css";
-
-import { useAuth } from "@/hooks/useAuth";
 
 export default function RootLayout() {
   const { restoreSession, loading, isAuthenticated } = useAuth();
@@ -32,5 +33,13 @@ export default function RootLayout() {
     return null;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      />
+    </GestureHandlerRootView>
+  );
 }
