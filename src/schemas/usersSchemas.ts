@@ -15,7 +15,7 @@ export const loginSchema = z.object({
     .max(20, "La contraseña no debe exceder los 20 caracteres")
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/,
-      "La contraseña debe tener mayúsculas, minúsculas, número y carácter especial"
+      "La contraseña debe tener mayúsculas, minúsculas, número y carácter especial",
     ),
 });
 //Formulario de registro
@@ -27,7 +27,7 @@ export const registerSchema = z.object({
     .max(100, "No puede exceder 20 caracteres")
     .regex(
       /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/,
-      "Solo letras y espacios para el nombre"
+      "Solo letras y espacios para el nombre",
     ),
   email: z
     .email("Email inválido")
@@ -42,7 +42,7 @@ export const registerSchema = z.object({
     .max(20, "La contraseña no debe exceder los 20 caracteres")
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/,
-      "La contraseña debe incluir mayúscula, minúscula, número y carácter especial"
+      "La contraseña debe incluir mayúscula, minúscula, número y carácter especial",
     ),
   physical_address: z
     .string()
@@ -51,7 +51,7 @@ export const registerSchema = z.object({
     .max(100, "La dirección no debe exceder 100 caracteres")
     .regex(
       /^[A-Za-z0-9ÁÉÍÓÚáéíóúÑñ\s\.\,'"#°\-]+$/,
-      "Caracteres inválidos en la dirección"
+      "Caracteres inválidos en la dirección",
     ),
 });
 //Formulario de actualizar cuenta
@@ -86,7 +86,7 @@ export const updatePasswordSchema = z
       .max(20, "La contraseña no debe exceder los 20 caracteres")
       .regex(
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/,
-        "La contraseña debe incluir mayúscula, minúscula, número y carácter especial"
+        "La contraseña debe incluir mayúscula, minúscula, número y carácter especial",
       ),
     confirmPassword: z
       .string()
@@ -95,7 +95,33 @@ export const updatePasswordSchema = z
       .max(20, "La contraseña no debe exceder los 20 caracteres")
       .regex(
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/,
-        "La contraseña debe incluir mayúscula, minúscula, número y carácter especial"
+        "La contraseña debe incluir mayúscula, minúscula, número y carácter especial",
+      ),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Las contraseñas no coinciden",
+  });
+export const updatePasswordFormSchema = z
+  .object({
+    password: z
+      .string()
+      .trim()
+      .min(8, "La contraseña debe tener al menos 8 caracteres")
+      .max(20, "La contraseña no debe exceder los 20 caracteres")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/,
+        "La contraseña debe incluir mayúscula, minúscula, número y carácter especial",
+      ),
+
+    confirmPassword: z
+      .string()
+      .trim()
+      .min(8, "La contraseña debe tener al menos 8 caracteres")
+      .max(20, "La contraseña no debe exceder los 20 caracteres")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,20}$/,
+        "La contraseña debe incluir mayúscula, minúscula, número y carácter especial",
       ),
   })
   .refine((data) => data.password === data.confirmPassword, {

@@ -1,11 +1,10 @@
+import ProductCard from "@/components/ProductCard";
 import BottomSheet from "@gorhom/bottom-sheet";
-import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
 import {
   ActivityIndicator,
   FlatList,
-  Image,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -17,8 +16,6 @@ import { Picker } from "@react-native-picker/picker";
 import { getProductFilters, getProductsBySearch } from "@/api/products.service";
 
 import type { Product, ProductFilters } from "@/types/product";
-
-import { getDiscount, numberFormat } from "@/utils/textFormatters";
 
 type Order = "asc" | "desc";
 
@@ -132,31 +129,6 @@ export default function ProductsPage() {
     return brandOk && processorOk && displayOk;
   });
 
-  function renderProduct({ item }: { item: Product }) {
-    return (
-      <TouchableOpacity
-        className="flex-1 bg-white rounded-2xl border border-gray-200 p-4 mx-2 mb-4"
-        onPress={() => router.push(`/product/${item.id}`)}
-      >
-        <Image
-          source={{
-            uri: item.image,
-          }}
-          className="w-full h-40"
-          resizeMode="contain"
-        />
-
-        <Text numberOfLines={2} className="font-semibold mt-3">
-          {item.name}
-        </Text>
-
-        <Text className="text-2xl font-bold mt-3">
-          {numberFormat(getDiscount(item.price, item.discount))}
-        </Text>
-      </TouchableOpacity>
-    );
-  }
-
   if (loading && products.length === 0) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -169,7 +141,11 @@ export default function ProductsPage() {
     <View className="flex-1">
       <FlatList
         data={filteredProducts}
-        renderItem={renderProduct}
+        renderItem={({ item }) => (
+          <View className="flex-1 mx-2 mb-4">
+            <ProductCard data={item} />
+          </View>
+        )}
         keyExtractor={(item) => item.id}
         numColumns={2}
         onEndReached={handleLoadMore}
@@ -210,93 +186,184 @@ export default function ProductsPage() {
         snapPoints={snapPoints}
         enablePanDownToClose
         enableDynamicSizing={false}
+        backgroundStyle={{
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          backgroundColor: "#fff",
+        }}
+        handleIndicatorStyle={{
+          backgroundColor: "#D1D5DB",
+          width: 48,
+        }}
       >
-        <View className="px-5 py-4">
-          <Text className="text-xl font-bold mb-5">Filtros</Text>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerClassName="px-5 pt-1 pb-8"
+        >
+          {/* HEADER */}
+          <View className="mb-5">
+            <Text className="text-2xl font-bold text-gray-900">Filtros</Text>
 
-          <Text className="font-semibold mb-2">Ordenar por</Text>
+            <Text className="text-sm text-gray-500 mt-1">
+              Personaliza tu búsqueda
+            </Text>
+          </View>
 
-          <Picker selectedValue={sort} onValueChange={setSort}>
-            <Picker.Item label="Ninguno" value="" />
+          {/* ORDENAR */}
+          <View className="mb-4">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">
+              Ordenar por
+            </Text>
 
-            <Picker.Item label="Precio" value="price" />
+            <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden justify-center">
+              <Picker
+                selectedValue={sort}
+                onValueChange={setSort}
+                style={{
+                  height: 50,
+                }}
+              >
+                <Picker.Item label="Ninguno" value="" />
 
-            <Picker.Item label="Nombre" value="name" />
-          </Picker>
+                <Picker.Item label="Precio" value="price" />
 
-          <Text className="font-semibold mt-4 mb-2">Orden</Text>
+                <Picker.Item label="Nombre" value="name" />
+              </Picker>
+            </View>
+          </View>
 
-          <Picker selectedValue={order} onValueChange={(v) => setOrder(v)}>
-            <Picker.Item label="Ascendente" value="asc" />
+          {/* ORDEN */}
+          <View className="mb-4">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">
+              Orden
+            </Text>
 
-            <Picker.Item label="Descendente" value="desc" />
-          </Picker>
+            <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
+              <Picker
+                selectedValue={order}
+                onValueChange={(v) => setOrder(v)}
+                style={{
+                  height: 50,
+                }}
+              >
+                <Picker.Item label="Ascendente" value="asc" />
 
-          <Text className="font-semibold mt-4 mb-2">Marca</Text>
+                <Picker.Item label="Descendente" value="desc" />
+              </Picker>
+            </View>
+          </View>
 
-          <Picker
-            selectedValue={selectedBrand}
-            onValueChange={setSelectedBrand}
-          >
-            <Picker.Item label="Todas" value="" />
+          {/* MARCA */}
+          <View className="mb-4">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">
+              Marca
+            </Text>
 
-            {filters?.brands.map((brand) => (
-              <Picker.Item
-                key={brand.name}
-                label={brand.name}
-                value={brand.name}
-              />
-            ))}
-          </Picker>
+            <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
+              <Picker
+                selectedValue={selectedBrand}
+                onValueChange={setSelectedBrand}
+                style={{
+                  height: 50,
+                }}
+              >
+                <Picker.Item label="Todas" value="" />
 
-          <Text className="font-semibold mt-4 mb-2">Procesador</Text>
+                {filters?.brands.map((brand) => (
+                  <Picker.Item
+                    key={brand.name}
+                    label={brand.name}
+                    value={brand.name}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
 
-          <Picker
-            selectedValue={selectedProcessor}
-            onValueChange={setSelectedProcessor}
-          >
-            <Picker.Item label="Todos" value="" />
+          {/* PROCESADOR */}
+          <View className="mb-4">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">
+              Procesador
+            </Text>
 
-            {filters?.processors.map((processor) => (
-              <Picker.Item
-                key={processor.name}
-                label={processor.name}
-                value={processor.name}
-              />
-            ))}
-          </Picker>
+            <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
+              <Picker
+                selectedValue={selectedProcessor}
+                onValueChange={setSelectedProcessor}
+                style={{
+                  height: 50,
+                }}
+              >
+                <Picker.Item label="Todos" value="" />
 
-          <Text className="font-semibold mt-4 mb-2">Pantalla</Text>
+                {filters?.processors.map((processor) => (
+                  <Picker.Item
+                    key={processor.name}
+                    label={processor.name}
+                    value={processor.name}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
 
-          <Picker
-            selectedValue={selectedDisplay}
-            onValueChange={setSelectedDisplay}
-          >
-            <Picker.Item label="Todas" value="" />
+          {/* PANTALLA */}
+          <View className="mb-5">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">
+              Pantalla
+            </Text>
 
-            {filters?.displays.map((display) => (
-              <Picker.Item
-                key={display.name}
-                label={display.name}
-                value={display.name}
-              />
-            ))}
-          </Picker>
+            <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
+              <Picker
+                selectedValue={selectedDisplay}
+                onValueChange={setSelectedDisplay}
+                style={{
+                  height: 50,
+                }}
+              >
+                <Picker.Item label="Todas" value="" />
 
-          <TouchableOpacity
-            className="bg-green-600 rounded-xl mt-6 p-4 items-center"
-            onPress={() => {
-              setProducts([]);
-              setPage(1);
+                {filters?.displays.map((display) => (
+                  <Picker.Item
+                    key={display.name}
+                    label={display.name}
+                    value={display.name}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
 
-              loadProducts(1, true);
+          {/* BUTTONS */}
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              className="flex-1 border border-gray-300 rounded-xl h-12 items-center justify-center"
+              onPress={() => {
+                setSort("");
+                setOrder("asc");
+                setSelectedBrand("");
+                setSelectedProcessor("");
+                setSelectedDisplay("");
+              }}
+            >
+              <Text className="font-medium text-gray-700">Limpiar</Text>
+            </TouchableOpacity>
 
-              bottomSheetRef.current?.close();
-            }}
-          >
-            <Text className="text-white font-bold">Aplicar filtros</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              className="flex-[1.3] bg-green-600 rounded-xl h-12 items-center justify-center"
+              onPress={() => {
+                setProducts([]);
+                setPage(1);
+
+                loadProducts(1, true);
+
+                bottomSheetRef.current?.close();
+              }}
+            >
+              <Text className="text-white font-semibold">Aplicar</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </BottomSheet>
     </View>
   );

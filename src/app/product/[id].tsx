@@ -9,12 +9,14 @@ import {
 
 import { useEffect, useState } from "react";
 
-import { router, useLocalSearchParams } from "expo-router";
+import ChangeQuantity from "@/components/ChangeQuantity";
+import { useLocalSearchParams } from "expo-router";
 
 import { getProductById, getProductsLimited } from "@/api/products.service";
 
-import { Product } from "@/types/product";
+import type { Product } from "@/types/product";
 
+import ProductCard from "@/components/ProductCard";
 import Score from "@/components/Score";
 
 import { getDiscount, numberFormat } from "@/utils/textFormatters";
@@ -29,6 +31,7 @@ export default function ProductPage() {
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [quantity, setQuantity] = useState(1);
 
   async function loadData() {
     try {
@@ -39,7 +42,7 @@ export default function ProductPage() {
 
       setProduct(productData);
 
-      setRelatedProducts(related ?? []);
+      setRelatedProducts((related ?? []).filter((item) => item.id !== id));
     } finally {
       setLoading(false);
     }
@@ -73,8 +76,12 @@ export default function ProductPage() {
       : `${product.disk_capacity} GB`;
 
   return (
-    <ScrollView className="flex-1 bg-white">
-      <View className="p-5">
+    <ScrollView
+      className="flex-1 bg-white"
+      showsVerticalScrollIndicator={false}
+    >
+      <View className="px-5 pt-4 pb-10">
+        {/* PRODUCT */}
         <Image
           source={{
             uri: product.image,
@@ -83,101 +90,137 @@ export default function ProductPage() {
           resizeMode="contain"
         />
 
-        <Text className="text-3xl font-bold mt-4">{product.name}</Text>
-
-        <Text className="text-gray-500 mt-1">
-          {product.brand} · {product.model}
+        <Text className="text-3xl font-bold text-center mt-4">
+          {product.name}
         </Text>
 
-        <View className="mt-4">
+        <View className="items-center mt-3">
           <Score qualification={4} size={24} />
         </View>
 
-        <Text className="text-4xl font-bold mt-4">
-          {numberFormat(finalPrice)}
-        </Text>
+        {/* PRICE */}
+        <View className="items-center mt-5">
+          <Text className="text-4xl font-bold">{numberFormat(finalPrice)}</Text>
 
-        {product.discount > 0 && (
-          <View className="flex-row items-center gap-2 mt-1">
-            <Text className="line-through text-gray-400">
-              {numberFormat(product.price)}
+          {product.discount > 0 && (
+            <View className="flex-row items-center mt-2 gap-2">
+              <Text className="line-through text-gray-400">
+                {numberFormat(product.price)}
+              </Text>
+
+              <View className="bg-red-500 rounded-full px-2 py-1">
+                <Text className="text-white text-xs font-semibold">
+                  -{product.discount}%
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* QUANTITY */}
+        <ChangeQuantity
+          stock={product.stock}
+          onChange={(qty) => setQuantity(qty)}
+        />
+
+        {/* ACTIONS */}
+        <View className="flex-row gap-3 mt-6">
+          <TouchableOpacity
+            disabled
+            className={`flex-1 rounded-xl h-12 items-center justify-center border ${
+              product.stock < 1
+                ? "border-gray-300 bg-gray-100 opacity-50"
+                : "border-green-600"
+            }`}
+          >
+            <Text
+              className={`font-semibold ${
+                product.stock < 1 ? "text-gray-500" : "text-green-700"
+              }`}
+            >
+              Agregar {quantity > 1 ? `(` + quantity + `)` : ""}
             </Text>
-
-            <Text className="bg-red-500 text-white px-2 py-1 rounded">
-              -{product.discount}%
-            </Text>
-          </View>
-        )}
-
-        <Text className="text-gray-700 mt-6 leading-6">
-          {product.description}
-        </Text>
-
-        {/* botones */}
-        <View className="flex-row gap-3 mt-8">
-          <TouchableOpacity className="flex-1 bg-green-600 p-4 rounded-2xl items-center">
-            <Text className="text-white font-bold">Agregar</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-1 bg-black p-4 rounded-2xl items-center">
-            <Text className="text-white font-bold">Comprar</Text>
+          <TouchableOpacity
+            disabled
+            className={`flex-1 rounded-xl h-12 items-center justify-center ${
+              product.stock < 1 ? "bg-gray-300 opacity-50" : "bg-black"
+            }`}
+          >
+            <Text className="font-semibold text-white">
+              {product.stock < 1
+                ? "No disponible"
+                : `Comprar ${quantity > 1 ? `(` + quantity + `)` : ""}`}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* características */}
-        <Text className="text-2xl font-bold mt-10 mb-4">Características</Text>
+        {/* DESCRIPTION */}
+        <View className="mt-8">
+          <Text className="text-2xl font-bold mb-3">Descripción</Text>
 
-        <FeatureRow label="Marca" value={product.brand} />
+          <Text className="text-gray-700 leading-6">{product.description}</Text>
+        </View>
 
-        <FeatureRow label="Modelo" value={product.model} />
+        {/* FEATURES */}
+        <Text className="text-2xl font-bold mt-10 mb-5">Características</Text>
 
-        <FeatureRow label="Sistema" value={product.system.system} />
+        {/* GENERAL */}
+        <FeatureSection title="General">
+          <FeatureRow label="Marca" value={product.brand} />
 
-        <FeatureRow label="Distribución" value={product.system.distribution} />
+          <FeatureRow label="Modelo" value={product.model} />
 
-        <FeatureRow
-          label="Procesador"
-          value={`${product.processor.brand} ${product.processor.family}`}
-        />
+          <FeatureRow label="Sistema" value={product.system.system} />
 
-        <FeatureRow label="Núcleos" value={String(product.processor.cores)} />
+          <FeatureRow
+            label="Distribución"
+            value={product.system.distribution}
+          />
+        </FeatureSection>
 
-        <FeatureRow label="Velocidad" value={product.processor.speed} />
+        {/* PROCESSOR */}
+        <FeatureSection title="Almacenamiento y procesamiento">
+          <FeatureRow label="Marca" value={product.processor.brand} />
 
-        <FeatureRow label="RAM" value={`${product.ram_capacity} GB`} />
+          <FeatureRow label="Serie" value={product.processor.family} />
 
-        <FeatureRow label="Almacenamiento" value={capacity} />
+          <FeatureRow label="Modelo" value={product.processor.model} />
 
-        <FeatureRow label="Pantalla" value={product.display.size.toString()} />
+          <FeatureRow label="Núcleos" value={String(product.processor.cores)} />
 
-        <FeatureRow label="Resolución" value={product.display.resolution} />
+          <FeatureRow label="Almacenamiento" value={capacity} />
 
-        {/* relacionados */}
+          <FeatureRow label="Velocidad" value={product.processor.speed} />
+
+          <FeatureRow label="RAM" value={`${product.ram_capacity} GB`} />
+        </FeatureSection>
+
+        {/* DISPLAY */}
+        <FeatureSection title="Pantalla">
+          <FeatureRow label="Tamaño" value={String(product.display.size)} />
+
+          <FeatureRow label="Resolución" value={product.display.resolution} />
+
+          <FeatureRow
+            label="Tarjeta gráfica"
+            value={product.display.graphics}
+          />
+
+          {!!product.display.brand && (
+            <FeatureRow label="Marca" value={product.display.brand} />
+          )}
+        </FeatureSection>
+
+        {/* RELATED */}
         <Text className="text-2xl font-bold mt-10 mb-5">Otros productos</Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {relatedProducts.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              className="w-52 mr-4 bg-gray-100 rounded-2xl p-4"
-              onPress={() => router.push(`/product/${item.id}`)}
-            >
-              <Image
-                source={{
-                  uri: item.image,
-                }}
-                className="w-full h-36"
-                resizeMode="contain"
-              />
-
-              <Text numberOfLines={2} className="font-semibold mt-2">
-                {item.name}
-              </Text>
-
-              <Text className="font-bold text-lg mt-2">
-                {numberFormat(getDiscount(item.price, item.discount))}
-              </Text>
-            </TouchableOpacity>
+            <View key={item.id} className="w-52 mr-4">
+              <ProductCard data={item} />
+            </View>
           ))}
         </ScrollView>
       </View>
@@ -185,12 +228,30 @@ export default function ProductPage() {
   );
 }
 
+function FeatureSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View className="mb-7">
+      <Text className="text-xl font-bold mb-3 text-gray-900">{title}</Text>
+
+      <View className="border border-gray-200 rounded-2xl overflow-hidden bg-gray-50">
+        {children}
+      </View>
+    </View>
+  );
+}
+
 function FeatureRow({ label, value }: { label: string; value: string }) {
   return (
-    <View className="border-b border-gray-200 py-3 flex-row justify-between">
-      <Text className="font-bold">{label}</Text>
+    <View className="flex-row justify-between items-start px-4 py-4 border-b border-gray-200">
+      <Text className="font-semibold text-gray-900 w-[40%]">{label}</Text>
 
-      <Text className="text-gray-700 max-w-[60%] text-right">{value}</Text>
+      <Text className="text-gray-700 flex-1 text-right">{value}</Text>
     </View>
   );
 }

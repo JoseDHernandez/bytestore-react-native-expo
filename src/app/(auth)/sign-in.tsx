@@ -1,6 +1,9 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -9,8 +12,10 @@ import {
 
 import { router } from "expo-router";
 
+import { MaterialIcons } from "@expo/vector-icons";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 
 import { useAuth } from "@/hooks/useAuth";
 import { loginSchema } from "@/schemas/usersSchemas";
@@ -22,11 +27,11 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function SignInPage() {
   const { signIn } = useAuth();
 
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
-    register,
-    setValue,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
@@ -38,75 +43,146 @@ export default function SignInPage() {
     },
   });
 
-  register("email");
-  register("password");
-
   const onSubmit = async (data: LoginFormData) => {
     try {
-      setError(null);
+      setApiError(null);
 
       await signIn(data);
 
       router.replace("/(tabs)");
     } catch {
-      setError("Credenciales inválidas");
+      setApiError("Credenciales inválidas");
     }
   };
 
   return (
-    <View className="flex-1 bg-white justify-center px-6">
-      <Text className="text-3xl font-bold text-center mb-10">Ingreso</Text>
+    <KeyboardAvoidingView
+      className="flex-1 bg-white"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerClassName="flex-grow justify-center px-6 py-10"
+      >
+        {/* HEADER */}
+        <View className="mb-10">
+          <Text className="text-4xl font-bold text-center text-black">
+            Ingreso
+          </Text>
 
-      <View className="gap-5">
-        {/* EMAIL */}
-        <View>
-          <Text className="mb-2 text-base">Correo electrónico</Text>
-
-          <TextInput
-            className="border border-gray-300 rounded-lg p-4"
-            placeholder="correo@ejemplo.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            onChangeText={(text) => setValue("email", text)}
-          />
-
-          {errors.email && (
-            <Text className="text-red-500 mt-1">{errors.email.message}</Text>
-          )}
+          <Text className="text-center text-gray-500 mt-2">
+            Inicia sesión para continuar
+          </Text>
         </View>
 
-        {/* PASSWORD */}
-        <View>
-          <Text className="mb-2 text-base">Contraseña</Text>
+        <View className="gap-5">
+          {/* EMAIL */}
+          <View>
+            <Text className="mb-2 text-base font-medium text-gray-700">
+              Correo electrónico
+            </Text>
 
-          <TextInput
-            className="border border-gray-300 rounded-lg p-4"
-            placeholder="********"
-            secureTextEntry
-            onChangeText={(text) => setValue("password", text)}
-          />
+            <View className="flex-row items-center border border-gray-300 rounded-2xl px-4 h-14">
+              <MaterialIcons name="email" size={22} color="#6B7280" />
 
-          {errors.password && (
-            <Text className="text-red-500 mt-1">{errors.password.message}</Text>
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    className="flex-1 ml-3 text-base"
+                    placeholder="correo@ejemplo.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+            </View>
+
+            {errors.email && (
+              <Text className="text-red-500 mt-2">{errors.email.message}</Text>
+            )}
+          </View>
+
+          {/* PASSWORD */}
+          <View>
+            <Text className="mb-2 text-base font-medium text-gray-700">
+              Contraseña
+            </Text>
+
+            <View className="flex-row items-center border border-gray-300 rounded-2xl px-4 h-14">
+              <MaterialIcons name="lock" size={22} color="#6B7280" />
+
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    className="flex-1 ml-3 text-base"
+                    placeholder="********"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+
+              <TouchableOpacity
+                onPress={() => setShowPassword((prev) => !prev)}
+              >
+                <MaterialIcons
+                  name={showPassword ? "visibility-off" : "visibility"}
+                  size={22}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {errors.password && (
+              <Text className="text-red-500 mt-2">
+                {errors.password.message}
+              </Text>
+            )}
+          </View>
+
+          {/* API ERROR */}
+          {apiError && (
+            <View className="bg-red-100 border border-red-300 rounded-xl p-3">
+              <Text className="text-red-600 text-center">{apiError}</Text>
+            </View>
           )}
+
+          {/* LOGIN BUTTON */}
+          <TouchableOpacity
+            className={`rounded-2xl h-14 items-center justify-center mt-2 ${
+              isSubmitting ? "bg-green-400" : "bg-green-600"
+            }`}
+            onPress={handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text className="text-white font-bold text-lg">Ingresar</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* REGISTER */}
+          <View className="flex-row justify-center mt-4">
+            <Text className="text-gray-600">¿No tienes cuenta?</Text>
+
+            <TouchableOpacity onPress={() => router.push("/sign-up")}>
+              <Text className="ml-2 font-semibold text-green-700">
+                Regístrate
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        {/* ERROR API */}
-        {error && <Text className="text-red-500 text-center">{error}</Text>}
-
-        {/* BUTTON */}
-        <TouchableOpacity
-          className="bg-green-600 rounded-xl p-4 mt-5 items-center"
-          onPress={handleSubmit(onSubmit)}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator />
-          ) : (
-            <Text className="text-white font-bold text-lg">Ingresar</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
