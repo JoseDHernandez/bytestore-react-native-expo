@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,22 +8,111 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
-  Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import { useCartStore, CartItem } from '../../store/cartStore';
+
+// ─── Cross-platform Alert (funciona en Web + Android/iOS) ────────────────────
+type AlertButton = {
+  text: string;
+  style?: 'cancel' | 'destructive' | 'default';
+  onPress?: () => void;
+};
+
+type AlertConfig = {
+  title: string;
+  message?: string;
+  buttons: AlertButton[];
+};
+
+const CrossAlert = ({
+  visible,
+  config,
+  onClose,
+}: {
+  visible: boolean;
+  config: AlertConfig | null;
+  onClose: () => void;
+}) => {
+  if (!config) return null;
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={alertStyles.overlay}>
+        <View style={alertStyles.box}>
+          <Text style={alertStyles.title}>{config.title}</Text>
+          {config.message ? (
+            <Text style={alertStyles.message}>{config.message}</Text>
+          ) : null}
+          <View style={alertStyles.btnRow}>
+            {config.buttons.map((btn, i) => (
+              <TouchableOpacity
+                key={i}
+                style={[
+                  alertStyles.btn,
+                  btn.style === 'destructive' && alertStyles.btnDestructive,
+                  btn.style === 'cancel' && alertStyles.btnCancel,
+                ]}
+                onPress={() => {
+                  onClose();
+                  btn.onPress?.();
+                }}
+                activeOpacity={0.75}
+              >
+                <Text
+                  style={[
+                    alertStyles.btnText,
+                    btn.style === 'destructive' && alertStyles.btnTextDestructive,
+                    btn.style === 'cancel' && alertStyles.btnTextCancel,
+                  ]}
+                >
+                  {btn.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// Hook para manejar el alert cross-platform
+const useCrossAlert = () => {
+  const [visible, setVisible] = useState(false);
+  const [config, setConfig] = useState<AlertConfig | null>(null);
+
+  const showAlert = useCallback((title: string, message: string | undefined, buttons: AlertButton[]) => {
+    setConfig({ title, message, buttons });
+    setVisible(true);
+  }, []);
+
+  const hideAlert = useCallback(() => {
+    setVisible(false);
+  }, []);
+
+  return { visible, config, showAlert, hideAlert };
+};
 
 // ─── Quantity Selector ───────────────────────────────────────────────────────
 const QuantitySelector = ({
   item,
+  onShowAlert,
 }: {
   item: CartItem;
+  onShowAlert: (title: string, message: string | undefined, buttons: AlertButton[]) => void;
 }) => {
   const { updateQuantity, removeItem } = useCartStore();
 
   const decrement = () => {
     if (item.quantity === 1) {
-      Alert.alert(
+      onShowAlert(
         'Eliminar producto',
         `¿Quieres eliminar "${item.name}" del carrito?`,
         [
@@ -63,12 +152,17 @@ const QuantitySelector = ({
 };
 
 // ─── Cart Item Card ──────────────────────────────────────────────────────────
-const CartCard = React.memo(({ item }: { item: CartItem }) => {
+const CartCard = React.memo(({
+  item,
+  onShowAlert,
+}: {
+  item: CartItem;
+  onShowAlert: (title: string, message: string | undefined, buttons: AlertButton[]) => void;
+}) => {
   const { removeItem } = useCartStore();
 
   return (
     <View style={styles.card}>
-      {/* Product image */}
       {item.image ? (
         <Image source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
       ) : (
@@ -77,7 +171,6 @@ const CartCard = React.memo(({ item }: { item: CartItem }) => {
         </View>
       )}
 
-      {/* Info */}
       <View style={styles.cardInfo}>
         <Text style={styles.cardName} numberOfLines={2}>
           {item.name}
@@ -88,10 +181,9 @@ const CartCard = React.memo(({ item }: { item: CartItem }) => {
         {item.stock !== undefined && item.stock <= 5 && (
           <Text style={styles.stockWarning}>Solo {item.stock} disponibles</Text>
         )}
-        <QuantitySelector item={item} />
+        <QuantitySelector item={item} onShowAlert={onShowAlert} />
       </View>
 
-      {/* Subtotal + delete */}
       <View style={styles.cardRight}>
         <TouchableOpacity
           style={styles.deleteBtn}
@@ -144,41 +236,51 @@ const SummaryRow = ({
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function CartScreen() {
   const { items, clearCart, getTotalItems, getTotalPrice } = useCartStore();
+  const { visible, config, showAlert, hideAlert } = useCrossAlert();
 
   const totalItems = getTotalItems();
   const totalPrice = getTotalPrice();
 
-  // Shipping mock (free over $150.000)
   const shippingThreshold = 150000;
   const shipping = totalPrice >= shippingThreshold || totalPrice === 0 ? 0 : 12000;
   const grandTotal = totalPrice + shipping;
 
   const handleCheckout = () => {
     if (items.length === 0) return;
-    Alert.alert('Confirmar pedido', `Total: $${grandTotal.toLocaleString('es-CO')}`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Confirmar',
-        onPress: () => {
-          // TODO: connect to checkout/payment flow
-          Alert.alert('¡Pedido realizado!', 'Gracias por tu compra.');
-          clearCart();
+    showAlert(
+      'Confirmar pedido',
+      `Total: $${grandTotal.toLocaleString('es-CO')}`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: () => {
+            showAlert('¡Pedido realizado!', 'Gracias por tu compra.', [
+              { text: 'OK', onPress: () => clearCart() },
+            ]);
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleClearCart = () => {
     if (items.length === 0) return;
-    Alert.alert('Vaciar carrito', '¿Estás seguro de que quieres eliminar todos los productos?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Vaciar', style: 'destructive', onPress: clearCart },
-    ]);
+    showAlert(
+      'Vaciar carrito',
+      '¿Estás seguro de que quieres eliminar todos los productos?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Vaciar', style: 'destructive', onPress: clearCart },
+      ]
+    );
   };
 
   const renderItem = useCallback(
-    ({ item }: { item: CartItem }) => <CartCard item={item} />,
-    []
+    ({ item }: { item: CartItem }) => (
+      <CartCard item={item} onShowAlert={showAlert} />
+    ),
+    [showAlert]
   );
 
   const keyExtractor = useCallback((item: CartItem) => String(item.id), []);
@@ -186,6 +288,9 @@ export default function CartScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
+
+      {/* Cross-platform Alert Modal */}
+      <CrossAlert visible={visible} config={config} onClose={hideAlert} />
 
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -197,14 +302,12 @@ export default function CartScreen() {
         )}
       </View>
 
-      {/* ── Item count badge ── */}
       {items.length > 0 && (
         <Text style={styles.itemCount}>
           {totalItems} {totalItems === 1 ? 'producto' : 'productos'}
         </Text>
       )}
 
-      {/* ── List ── */}
       <FlatList
         data={items}
         keyExtractor={keyExtractor}
@@ -217,7 +320,6 @@ export default function CartScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* ── Summary & Checkout ── */}
       {items.length > 0 && (
         <View style={styles.footer}>
           <View style={styles.summaryCard}>
@@ -256,6 +358,76 @@ export default function CartScreen() {
   );
 }
 
+// ─── Alert Styles ─────────────────────────────────────────────────────────────
+const alertStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  box: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+      },
+      android: { elevation: 8 },
+      web: { boxShadow: '0 8px 32px rgba(0,0,0,0.18)' } as any,
+    }),
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    textAlign: 'center',
+  },
+  message: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  btn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  btnCancel: {
+    backgroundColor: '#F3F4F6',
+  },
+  btnDestructive: {
+    backgroundColor: '#FEE2E2',
+  },
+  btnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#16a34a',
+  },
+  btnTextCancel: {
+    color: '#6B7280',
+  },
+  btnTextDestructive: {
+    color: '#EF4444',
+  },
+});
+
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const ACCENT = '#16a34a';
 const ACCENT_LIGHT = '#dcfce7';
@@ -267,12 +439,7 @@ const BORDER = '#E5E7EB';
 const RADIUS = 14;
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: BG,
-  },
-
-  // ── Header
+  safeArea: { flex: 1, backgroundColor: BG },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -281,35 +448,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: BG,
   },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-    letterSpacing: -0.5,
-  },
-  clearBtn: {
-    fontSize: 14,
-    color: ACCENT,
-    fontWeight: '600',
-  },
-  itemCount: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    fontSize: 13,
-    color: TEXT_SECONDARY,
-  },
-
-  // ── List
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  listContentEmpty: {
-    flexGrow: 1,
-  },
-
-  // ── Card
+  headerTitle: { fontSize: 26, fontWeight: '700', color: TEXT_PRIMARY, letterSpacing: -0.5 },
+  clearBtn: { fontSize: 14, color: ACCENT, fontWeight: '600' },
+  itemCount: { paddingHorizontal: 20, paddingBottom: 8, fontSize: 13, color: TEXT_SECONDARY },
+  listContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
+  listContentEmpty: { flexGrow: 1 },
   card: {
     flexDirection: 'row',
     backgroundColor: SURFACE,
@@ -318,203 +461,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-      },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
       android: { elevation: 2 },
     }),
   },
-  cardImage: {
-    width: 76,
-    height: 76,
-    borderRadius: 10,
-    backgroundColor: '#F3F4F6',
-  },
-  cardImagePlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardImagePlaceholderText: {
-    fontSize: 28,
-  },
-  cardInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  cardName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: TEXT_PRIMARY,
-    lineHeight: 20,
-  },
-  cardPrice: {
-    fontSize: 13,
-    color: TEXT_SECONDARY,
-  },
-  stockWarning: {
-    fontSize: 11,
-    color: '#EF4444',
-    fontWeight: '500',
-  },
-
-  // ── Quantity
-  qtyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    gap: 0,
-  },
-  qtyBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: ACCENT_LIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qtyBtnDisabled: {
-    backgroundColor: '#F3F4F6',
-  },
-  qtyBtnText: {
-    fontSize: 18,
-    color: ACCENT,
-    lineHeight: 22,
-    fontWeight: '600',
-  },
-  qtyValue: {
-    minWidth: 32,
-    textAlign: 'center',
-    fontSize: 15,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-  },
-
-  // ── Card right column
-  cardRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    height: 76,
-  },
-  deleteBtn: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtnText: {
-    fontSize: 13,
-    color: TEXT_SECONDARY,
-    fontWeight: '600',
-  },
-  cardSubtotal: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-  },
-
-  // ── Empty
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-    gap: 12,
-  },
-  emptyIcon: {
-    fontSize: 64,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: TEXT_SECONDARY,
-    textAlign: 'center',
-    paddingHorizontal: 32,
-    lineHeight: 20,
-  },
-
-  // ── Footer / Summary
-  footer: {
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'android' ? 16 : 8,
-    gap: 12,
-    backgroundColor: BG,
-  },
+  cardImage: { width: 76, height: 76, borderRadius: 10, backgroundColor: '#F3F4F6' },
+  cardImagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  cardImagePlaceholderText: { fontSize: 28 },
+  cardInfo: { flex: 1, gap: 4 },
+  cardName: { fontSize: 14, fontWeight: '600', color: TEXT_PRIMARY, lineHeight: 20 },
+  cardPrice: { fontSize: 13, color: TEXT_SECONDARY },
+  stockWarning: { fontSize: 11, color: '#EF4444', fontWeight: '500' },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 0 },
+  qtyBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: ACCENT_LIGHT, alignItems: 'center', justifyContent: 'center' },
+  qtyBtnDisabled: { backgroundColor: '#F3F4F6' },
+  qtyBtnText: { fontSize: 18, color: ACCENT, lineHeight: 22, fontWeight: '600' },
+  qtyValue: { minWidth: 32, textAlign: 'center', fontSize: 15, fontWeight: '700', color: TEXT_PRIMARY },
+  cardRight: { alignItems: 'flex-end', justifyContent: 'space-between', height: 76 },
+  deleteBtn: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  deleteBtnText: { fontSize: 13, color: TEXT_SECONDARY, fontWeight: '600' },
+  cardSubtotal: { fontSize: 15, fontWeight: '700', color: TEXT_PRIMARY },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80, gap: 12 },
+  emptyIcon: { fontSize: 64 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: TEXT_PRIMARY },
+  emptySubtitle: { fontSize: 14, color: TEXT_SECONDARY, textAlign: 'center', paddingHorizontal: 32, lineHeight: 20 },
+  footer: { paddingHorizontal: 16, paddingBottom: Platform.OS === 'android' ? 16 : 8, gap: 12, backgroundColor: BG },
   summaryCard: {
     backgroundColor: SURFACE,
     borderRadius: RADIUS,
     padding: 16,
     gap: 8,
     ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-      },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -1 }, shadowOpacity: 0.05, shadowRadius: 4 },
       android: { elevation: 3 },
     }),
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: TEXT_SECONDARY,
-  },
-  summaryValue: {
-    fontSize: 14,
-    color: TEXT_PRIMARY,
-    fontWeight: '500',
-  },
-  summaryBold: {
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-  },
-  summaryLarge: {
-    fontSize: 17,
-  },
-  shippingNote: {
-    fontSize: 11,
-    color: '#F59E0B',
-    fontWeight: '500',
-    textAlign: 'right',
-    marginTop: -4,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: BORDER,
-    marginVertical: 4,
-  },
-
-  // ── Checkout button
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryLabel: { fontSize: 14, color: TEXT_SECONDARY },
+  summaryValue: { fontSize: 14, color: TEXT_PRIMARY, fontWeight: '500' },
+  summaryBold: { fontWeight: '700', color: TEXT_PRIMARY },
+  summaryLarge: { fontSize: 17 },
+  shippingNote: { fontSize: 11, color: '#F59E0B', fontWeight: '500', textAlign: 'right', marginTop: -4 },
+  divider: { height: 1, backgroundColor: BORDER, marginVertical: 4 },
   checkoutBtn: {
     backgroundColor: ACCENT,
     borderRadius: RADIUS,
     paddingVertical: 16,
     alignItems: 'center',
     ...Platform.select({
-      ios: {
-        shadowColor: ACCENT,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
+      ios: { shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
       android: { elevation: 4 },
     }),
   },
-  checkoutBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
+  checkoutBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.3 },
 });
