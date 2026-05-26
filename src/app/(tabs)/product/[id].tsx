@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from "react";
 
 import ChangeQuantity from "@/components/ChangeQuantity";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, router } from "expo-router";
 
 import { getProductById, getProductsLimited } from "@/api/products.service";
 
@@ -20,16 +20,17 @@ import ProductCard from "@/components/ProductCard";
 import Score from "@/components/Score";
 
 import { getDiscount, numberFormat } from "@/utils/textFormatters";
+import { useCartStore } from "@/store/cartStore";
 
 export default function ProductPage() {
   const { id } = useLocalSearchParams<{
     id: string;
   }>();
 
+  const { addItem } = useCartStore();
+
   const [product, setProduct] = useState<Product | null>(null);
-
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
 
@@ -39,9 +40,7 @@ export default function ProductPage() {
         getProductById(id),
         getProductsLimited(5),
       ]);
-
       setProduct(productData);
-
       setRelatedProducts((related ?? []).filter((item) => item.id !== id));
     } finally {
       setLoading(false);
@@ -74,6 +73,28 @@ export default function ProductPage() {
     product.disk_capacity > 999
       ? `${product.disk_capacity / 1000} TB`
       : `${product.disk_capacity} GB`;
+
+  function handleAddToCart() {
+    if (!product) return;
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: finalPrice,
+      image: product.image,
+      stock: product.stock,
+      discount: product.discount,
+      brand: product.brand,
+      model: product.model,
+      quantity: quantity,
+    });
+    setQuantity(1);
+  }
+
+  function handleBuyNow() {
+    if (!product) return;
+    handleAddToCart();
+    router.push("/cart");
+  }
 
   return (
     <ScrollView
@@ -126,7 +147,8 @@ export default function ProductPage() {
         {/* ACTIONS */}
         <View className="flex-row gap-3 mt-6">
           <TouchableOpacity
-            disabled
+            onPress={handleAddToCart}
+            disabled={product.stock < 1}
             className={`flex-1 rounded-xl h-12 items-center justify-center border ${
               product.stock < 1
                 ? "border-gray-300 bg-gray-100 opacity-50"
@@ -143,7 +165,8 @@ export default function ProductPage() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            disabled
+            onPress={handleBuyNow}
+            disabled={product.stock < 1}
             className={`flex-1 rounded-xl h-12 items-center justify-center ${
               product.stock < 1 ? "bg-gray-300 opacity-50" : "bg-black"
             }`}
@@ -169,45 +192,27 @@ export default function ProductPage() {
         {/* GENERAL */}
         <FeatureSection title="General">
           <FeatureRow label="Marca" value={product.brand} />
-
           <FeatureRow label="Modelo" value={product.model} />
-
           <FeatureRow label="Sistema" value={product.system.system} />
-
-          <FeatureRow
-            label="Distribución"
-            value={product.system.distribution}
-          />
+          <FeatureRow label="Distribución" value={product.system.distribution} />
         </FeatureSection>
 
         {/* PROCESSOR */}
         <FeatureSection title="Almacenamiento y procesamiento">
           <FeatureRow label="Marca" value={product.processor.brand} />
-
           <FeatureRow label="Serie" value={product.processor.family} />
-
           <FeatureRow label="Modelo" value={product.processor.model} />
-
           <FeatureRow label="Núcleos" value={String(product.processor.cores)} />
-
           <FeatureRow label="Almacenamiento" value={capacity} />
-
           <FeatureRow label="Velocidad" value={product.processor.speed} />
-
           <FeatureRow label="RAM" value={`${product.ram_capacity} GB`} />
         </FeatureSection>
 
         {/* DISPLAY */}
         <FeatureSection title="Pantalla">
           <FeatureRow label="Tamaño" value={String(product.display.size)} />
-
           <FeatureRow label="Resolución" value={product.display.resolution} />
-
-          <FeatureRow
-            label="Tarjeta gráfica"
-            value={product.display.graphics}
-          />
-
+          <FeatureRow label="Tarjeta gráfica" value={product.display.graphics} />
           {!!product.display.brand && (
             <FeatureRow label="Marca" value={product.display.brand} />
           )}

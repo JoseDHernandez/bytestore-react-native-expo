@@ -21,38 +21,32 @@ type Order = "asc" | "desc";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-
   const [filters, setFilters] = useState<ProductFilters | null>(null);
-
   const [page, setPage] = useState(1);
-
   const [query, setQuery] = useState("");
-
   const [tempQuery, setTempQuery] = useState("");
-
   const [sort, setSort] = useState("");
-
   const [order, setOrder] = useState<Order>("desc");
 
+  // Filtros temporales (dentro del BottomSheet, antes de aplicar)
+  const [tempBrand, setTempBrand] = useState("");
+  const [tempProcessor, setTempProcessor] = useState("");
+  const [tempDisplay, setTempDisplay] = useState("");
+
+  // Filtros aplicados (los que se envían al API)
   const [selectedBrand, setSelectedBrand] = useState("");
-
   const [selectedProcessor, setSelectedProcessor] = useState("");
-
   const [selectedDisplay, setSelectedDisplay] = useState("");
 
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
-
   const [hasMore, setHasMore] = useState(true);
 
   const bottomSheetRef = useRef<BottomSheet>(null);
-
   const snapPoints = useMemo(() => ["50%", "80%"], []);
 
   async function fetchFilters() {
     const data = await getProductFilters();
-
     setFilters(data);
   }
 
@@ -70,6 +64,9 @@ export default function ProductsPage() {
           numberPage: pageNumber,
           sort,
           order,
+          brand: selectedBrand,
+          processor: selectedProcessor,
+          display: selectedDisplay,
         });
 
         if (!response) return;
@@ -86,7 +83,7 @@ export default function ProductsPage() {
         setRefreshing(false);
       }
     },
-    [query, sort, order],
+    [query, sort, order, selectedBrand, selectedProcessor, selectedDisplay],
   );
 
   useEffect(() => {
@@ -95,39 +92,39 @@ export default function ProductsPage() {
 
   useEffect(() => {
     setPage(1);
-
     loadProducts(1, true);
-  }, [query, sort, order]);
+  }, [query, sort, order, selectedBrand, selectedProcessor, selectedDisplay]);
 
   async function handleLoadMore() {
     if (loading || !hasMore) return;
-
     const nextPage = page + 1;
-
     setPage(nextPage);
-
     await loadProducts(nextPage);
   }
 
   async function handleRefresh() {
     setRefreshing(true);
-
     setPage(1);
-
     await loadProducts(1, true);
   }
 
-  const filteredProducts = products.filter((product) => {
-    const brandOk = !selectedBrand || product.brand === selectedBrand;
+  function handleApplyFilters() {
+    // Aplicar los filtros temporales
+    setSelectedBrand(tempBrand);
+    setSelectedProcessor(tempProcessor);
+    setSelectedDisplay(tempDisplay);
+    setProducts([]);
+    setPage(1);
+    bottomSheetRef.current?.close();
+  }
 
-    const processorOk =
-      !selectedProcessor || product.processor.brand === selectedProcessor;
-
-    const displayOk =
-      !selectedDisplay || product.display.brand === selectedDisplay;
-
-    return brandOk && processorOk && displayOk;
-  });
+  function handleClearFilters() {
+    setTempBrand("");
+    setTempProcessor("");
+    setTempDisplay("");
+    setSort("");
+    setOrder("asc");
+  }
 
   if (loading && products.length === 0) {
     return (
@@ -140,7 +137,7 @@ export default function ProductsPage() {
   return (
     <View className="flex-1">
       <FlatList
-        data={filteredProducts}
+        data={products}
         renderItem={({ item }) => (
           <View className="flex-1 mx-2 mb-4">
             <ProductCard data={item} />
@@ -161,7 +158,6 @@ export default function ProductsPage() {
                 value={tempQuery}
                 onChangeText={setTempQuery}
               />
-
               <TouchableOpacity
                 className="bg-green-600 rounded-xl px-5 justify-center"
                 onPress={handleSearch}
@@ -200,10 +196,8 @@ export default function ProductsPage() {
           showsVerticalScrollIndicator={false}
           contentContainerClassName="px-5 pt-1 pb-8"
         >
-          {/* HEADER */}
           <View className="mb-5">
             <Text className="text-2xl font-bold text-gray-900">Filtros</Text>
-
             <Text className="text-sm text-gray-500 mt-1">
               Personaliza tu búsqueda
             </Text>
@@ -214,19 +208,10 @@ export default function ProductsPage() {
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Ordenar por
             </Text>
-
             <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden justify-center">
-              <Picker
-                selectedValue={sort}
-                onValueChange={setSort}
-                style={{
-                  height: 50,
-                }}
-              >
+              <Picker selectedValue={sort} onValueChange={setSort} style={{ height: 50 }}>
                 <Picker.Item label="Ninguno" value="" />
-
                 <Picker.Item label="Precio" value="price" />
-
                 <Picker.Item label="Nombre" value="name" />
               </Picker>
             </View>
@@ -237,17 +222,9 @@ export default function ProductsPage() {
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Orden
             </Text>
-
             <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
-              <Picker
-                selectedValue={order}
-                onValueChange={(v) => setOrder(v)}
-                style={{
-                  height: 50,
-                }}
-              >
+              <Picker selectedValue={order} onValueChange={(v) => setOrder(v)} style={{ height: 50 }}>
                 <Picker.Item label="Ascendente" value="asc" />
-
                 <Picker.Item label="Descendente" value="desc" />
               </Picker>
             </View>
@@ -258,23 +235,11 @@ export default function ProductsPage() {
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Marca
             </Text>
-
             <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
-              <Picker
-                selectedValue={selectedBrand}
-                onValueChange={setSelectedBrand}
-                style={{
-                  height: 50,
-                }}
-              >
+              <Picker selectedValue={tempBrand} onValueChange={setTempBrand} style={{ height: 50 }}>
                 <Picker.Item label="Todas" value="" />
-
                 {filters?.brands.map((brand) => (
-                  <Picker.Item
-                    key={brand.name}
-                    label={brand.name}
-                    value={brand.name}
-                  />
+                  <Picker.Item key={brand.name} label={brand.name} value={brand.name} />
                 ))}
               </Picker>
             </View>
@@ -285,23 +250,11 @@ export default function ProductsPage() {
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Procesador
             </Text>
-
             <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
-              <Picker
-                selectedValue={selectedProcessor}
-                onValueChange={setSelectedProcessor}
-                style={{
-                  height: 50,
-                }}
-              >
+              <Picker selectedValue={tempProcessor} onValueChange={setTempProcessor} style={{ height: 50 }}>
                 <Picker.Item label="Todos" value="" />
-
                 {filters?.processors.map((processor) => (
-                  <Picker.Item
-                    key={processor.name}
-                    label={processor.name}
-                    value={processor.name}
-                  />
+                  <Picker.Item key={processor.name} label={processor.name} value={processor.name} />
                 ))}
               </Picker>
             </View>
@@ -312,23 +265,11 @@ export default function ProductsPage() {
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Pantalla
             </Text>
-
             <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
-              <Picker
-                selectedValue={selectedDisplay}
-                onValueChange={setSelectedDisplay}
-                style={{
-                  height: 50,
-                }}
-              >
+              <Picker selectedValue={tempDisplay} onValueChange={setTempDisplay} style={{ height: 50 }}>
                 <Picker.Item label="Todas" value="" />
-
                 {filters?.displays.map((display) => (
-                  <Picker.Item
-                    key={display.name}
-                    label={display.name}
-                    value={display.name}
-                  />
+                  <Picker.Item key={display.name} label={display.name} value={display.name} />
                 ))}
               </Picker>
             </View>
@@ -338,27 +279,14 @@ export default function ProductsPage() {
           <View className="flex-row gap-3">
             <TouchableOpacity
               className="flex-1 border border-gray-300 rounded-xl h-12 items-center justify-center"
-              onPress={() => {
-                setSort("");
-                setOrder("asc");
-                setSelectedBrand("");
-                setSelectedProcessor("");
-                setSelectedDisplay("");
-              }}
+              onPress={handleClearFilters}
             >
               <Text className="font-medium text-gray-700">Limpiar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               className="flex-[1.3] bg-green-600 rounded-xl h-12 items-center justify-center"
-              onPress={() => {
-                setProducts([]);
-                setPage(1);
-
-                loadProducts(1, true);
-
-                bottomSheetRef.current?.close();
-              }}
+              onPress={handleApplyFilters}
             >
               <Text className="text-white font-semibold">Aplicar</Text>
             </TouchableOpacity>
